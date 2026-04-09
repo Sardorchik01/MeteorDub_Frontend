@@ -1,0 +1,162 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - username: string (required, unique)
+//   - firstName: string
+//   - lastName: string
+//   - birthYear: number
+//   - role: string (user, uploader, support, superadmin)
+//   - status: string (standard, premium)
+//   - createdAt: number
+//
+// Collection: usernames
+// Document ID: {username}
+// Fields:
+//   - email: string
+//   - uid: string
+//
+// Collection: animes
+// Document ID: {animeId}
+// Fields:
+//   - title: string (required)
+//   - description: string
+//   - thumbnail: string
+//   - videoUrl: string (required)
+//   - genre: list
+//   - rating: number
+//   - episodes: number
+//   - status: string
+//   - year: number
+//   - accessType: string (public, premium)
+//   - upgradeLink: string
+//
+// Collection: stats
+// Document ID: {statId}
+// Fields:
+//   - date: string
+//   - views: number
+//   - subscriptions: number
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserData().role in ['uploader', 'support', 'superadmin'] ||
+        (request.auth.token.email in ["abdulazizov0117@gmail.com", "Abdulazozv0117@gamil.com"] && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isSuperAdmin() {
+      return hasRole('superadmin') || (request.auth.token.email in ["abdulazizov0117@gmail.com", "Abdulazozv0117@gamil.com"] && request.auth.token.email_verified == true);
+    }
+
+    function isUploader() {
+      return hasRole('uploader') || isSuperAdmin();
+    }
+
+    function isSupport() {
+      return hasRole('support') || isSuperAdmin();
+    }
+
+    function isPremium() {
+      return isAuthenticated() && getUserData().status == 'premium';
+    }
+
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'username', 'role', 'status']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.username is string && data.username.size() >= 3 &&
+             data.role in ['user', 'uploader', 'support', 'superadmin'] &&
+             data.status in ['standard', 'premium'];
+    }
+
+    function isValidAnime(data) {
+      return data.keys().hasAll(['title', 'videoUrl', 'accessType']) &&
+             data.title is string && data.title.size() < 200 &&
+             data.videoUrl is string &&
+             data.accessType in ['public', 'premium'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /usernames/{username} {
+      // Anyone can read to check for uniqueness or look up email.
+      allow read: if true;
+      // Create: Only if it doesn't exist.
+      allow create: if isAuthenticated() && !exists(/databases/$(database)/documents/usernames/$(username)) && request.resource.data.uid == request.auth.uid;
+      // Update/Delete: Not allowed to prevent hijacking.
+      allow update, delete: if false;
+    }
+
+    match /users/{userId} {
+      // Users can read their own profile. Support and SuperAdmin can read all.
+      // "har bir admin uzining vakolati bo'lamag bulimlarga kira olsin lekin faqqat o'qish erjimida"
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: User can create their own profile as 'user' and 'standard'.
+      // SuperAdmin can create any.
+      allow create: if (isOwner(userId) && request.resource.data.role == 'user' && request.resource.data.status == 'standard' && isValidUser(request.resource.data)) || isSuperAdmin();
+      
+      // Update: User can update their own info but NOT role/status.
+      // Support can update info and status.
+      // SuperAdmin can update everything.
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status && isValidUser(request.resource.data)) ||
+                    (isSupport() && isValidUser(request.resource.data)) ||
+                    isSuperAdmin();
+    }
+
+    match /animes/{animeId} {
+      // Everyone can read animes (to see them in the list).
+      allow read: if true;
+      
+      // Write: Uploader and SuperAdmin.
+      allow create, update, delete: if isUploader() && isValidAnime(request.resource.data);
+    }
+
+    match /stats/{statId} {
+      // Admins can read stats.
+      allow read: if isAdmin();
+      
+      // SuperAdmin can write stats (or a backend process).
+      allow write: if isSuperAdmin();
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "username": { "type": "string", "description": "Unique username" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "birthYear": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "uploader", "support", "superadmin"] },
+        "status": { "type": "string", "enum": ["standard", "premium"] },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["uid", "email", "username", "role", "status"]
+    },
+    "Anime": {
+      "title": "Anime",
+      "description": "Stores anime metadata and video links.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "thumbnail": { "type": "string", "format": "uri" },
+        "videoUrl": { "type": "string", "format": "uri" },
+        "genre": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number", "description": "IMDb rating" },
+        "episodes": { "type": "number" },
+        "status": { "type": "string", "enum": ["Ongoing", "Completed"] },
+        "year": { "type": "number" },
+        "accessType": { "type": "string", "enum": ["public", "premium"] },
+        "upgradeLink": { "type": "string", "format": "uri" }
+      },
+      "required": ["title", "videoUrl", "accessType"]
+    },
+    "Stats": {
+      "title": "Statistics",
+      "description": "Stores site-wide statistics.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "views": { "type": "number" },
+        "subscriptions": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and roles."
+    },
+    "/animes/{animeId}": {
+      "schema": "Anime",
+      "description": "Anime catalog."
+    },
+    "/stats/{statId}": {
+      "schema": "Stats",
+      "description": "Daily statistics for dashboard."
+    },
+    "/usernames/{username}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "uid": { "type": "string" }
+        }
+      },
+      "description": "Mapping of usernames to emails for unique check and login."
+    }
+  }
+}
