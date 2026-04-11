@@ -2,24 +2,38 @@ import * as React from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Film, Users, Shield, LogOut, 
-  Menu, X, Bell, Search, Settings, ChevronRight
+  Menu, X, Search, Settings, ChevronRight, CreditCard, Bot,
+  Sun, Moon, Bell
 } from 'lucide-react';
+import { NotificationBell } from '../components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import Dashboard from './Dashboard';
 import AnimeManagement from './AnimeManagement';
 import MemberManagement from './MemberManagement';
 import AdminManagement from './AdminManagement';
+import TariffManagement from './TariffManagement';
+import AdManagement from './AdManagement';
+import AISettings from './AISettings';
+import NotificationManagement from './NotificationManagement';
 import AdminLogin from './Login';
 
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { useLanguage } from '../contexts/LanguageContext';
+
 export default function AdminLayout() {
+  const { t } = useLanguage();
   const { profile, loading, isAuthReady } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
 
   if (!isAuthReady || loading) {
-    return <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-white">Loading...</div>;
+    return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Loading...</div>;
   }
 
   // Login route is public for admins
@@ -33,23 +47,27 @@ export default function AdminLayout() {
   }
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/admin', roles: ['superadmin', 'uploader', 'support'] },
-    { label: 'Anime Catalog', icon: Film, path: '/admin/animes', roles: ['superadmin', 'uploader'] },
-    { label: 'Members', icon: Users, path: '/admin/members', roles: ['superadmin', 'support'] },
-    { label: 'Admins', icon: Shield, path: '/admin/admins', roles: ['superadmin'] },
+    { label: t('dashboard'), icon: LayoutDashboard, path: '/admin', roles: ['superadmin', 'uploader', 'support'] },
+    { label: t('anime_catalog'), icon: Film, path: '/admin/animes', roles: ['superadmin', 'uploader'] },
+    { label: t('tariffs'), icon: CreditCard, path: '/admin/tariffs', roles: ['superadmin'] },
+    { label: t('members'), icon: Users, path: '/admin/members', roles: ['superadmin', 'support'] },
+    { label: t('ads'), icon: CreditCard, path: '/admin/ads', roles: ['superadmin'] },
+    { label: t('ai_settings'), icon: Bot, path: '/admin/ai-settings', roles: ['superadmin'] },
+    { label: t('notifications_mgmt'), icon: Bell, path: '/admin/notifications', roles: ['superadmin', 'uploader', 'support'] },
+    { label: t('admins'), icon: Shield, path: '/admin/admins', roles: ['superadmin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(profile.role));
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar */}
       <aside className={cn(
-        "bg-zinc-950 border-r border-zinc-800 transition-all duration-300 flex flex-col z-50",
+        "bg-card border-r border-border transition-all duration-300 flex flex-col z-50",
         isSidebarOpen ? "w-64" : "w-20"
       )}>
         <div className="p-6 flex items-center justify-between">
-          {isSidebarOpen && <h1 className="text-xl font-bold text-blue-500">ADMIN<span className="text-white">PANEL</span></h1>}
+          {isSidebarOpen && <h1 className="text-xl font-bold text-blue-500">ADMIN<span className="text-foreground">PANEL</span></h1>}
           <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
@@ -62,7 +80,7 @@ export default function AdminLayout() {
               to={item.path}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all group",
-                location.pathname === item.path ? "bg-blue-500 text-white" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                location.pathname === item.path ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />
@@ -71,7 +89,19 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800">
+        {isSidebarOpen && (
+          <div className="px-4 mb-4">
+            <LanguageSwitcher />
+          </div>
+        )}
+
+        <div className="p-4 border-t border-border">
+          <div className="px-4 mb-4 flex items-center justify-between">
+            {isSidebarOpen && <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('dark_mode')}</span>}
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
+              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+          </div>
           <div className={cn("flex items-center gap-3", !isSidebarOpen && "justify-center")}>
             <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center font-bold">
               {profile.firstName[0]}{profile.lastName[0]}
@@ -83,9 +113,13 @@ export default function AdminLayout() {
               </div>
             )}
           </div>
-          <Button variant="ghost" className={cn("w-full mt-4 text-red-500 hover:text-red-400 hover:bg-red-500/10", !isSidebarOpen && "px-0")}>
+          <Button 
+            variant="ghost" 
+            className={cn("w-full mt-4 text-red-500 hover:text-red-400 hover:bg-red-500/10", !isSidebarOpen && "px-0")}
+            onClick={() => signOut(auth)}
+          >
             <LogOut className="h-5 w-5" />
-            {isSidebarOpen && <span className="ml-3">Logout</span>}
+            {isSidebarOpen && <span className="ml-3">{t('logout')}</span>}
           </Button>
         </div>
       </aside>
@@ -93,25 +127,22 @@ export default function AdminLayout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-8">
-          <div className="flex items-center gap-4 text-sm text-zinc-500">
+        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-md flex items-center justify-between px-8">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span>Admin</span>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-white capitalize">{location.pathname.split('/').pop() || 'Dashboard'}</span>
+            <span className="text-foreground capitalize">{location.pathname.split('/').pop() || t('dashboard')}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input 
                 type="text" 
-                placeholder="Search..." 
-                className="bg-zinc-900 border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64"
+                placeholder={t('search')} 
+                className="bg-muted border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64"
               />
             </div>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-zinc-950" />
-            </Button>
+            <NotificationBell />
             <Button variant="ghost" size="icon">
               <Settings className="h-5 w-5" />
             </Button>
@@ -123,7 +154,11 @@ export default function AdminLayout() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/animes" element={<AnimeManagement />} />
+            <Route path="/tariffs" element={<TariffManagement />} />
             <Route path="/members" element={<MemberManagement />} />
+            <Route path="/ads" element={<AdManagement />} />
+            <Route path="/ai-settings" element={<AISettings />} />
+            <Route path="/notifications" element={<NotificationManagement />} />
             <Route path="/admins" element={<AdminManagement />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>

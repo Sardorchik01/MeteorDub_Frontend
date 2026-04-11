@@ -71,13 +71,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        getUserData().role in ['uploader', 'support', 'superadmin'] ||
-        (request.auth.token.email in ["abdulazizov0117@gmail.com", "Abdulazozv0117@gamil.com"] && request.auth.token.email_verified == true)
+        (request.auth.token.email.lower() == "abdulazizov0117@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['uploader', 'support', 'superadmin'])
       );
     }
 
     function isSuperAdmin() {
-      return hasRole('superadmin') || (request.auth.token.email in ["abdulazizov0117@gmail.com", "Abdulazozv0117@gamil.com"] && request.auth.token.email_verified == true);
+      return (request.auth.token.email.lower() == "abdulazizov0117@gmail.com" && request.auth.token.email_verified == true) || 
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin');
     }
 
     function isUploader() {
@@ -99,14 +100,26 @@ service cloud.firestore {
              data.email is string &&
              data.username is string && data.username.size() >= 3 &&
              data.role in ['user', 'uploader', 'support', 'superadmin'] &&
-             data.status in ['standard', 'premium'];
+             data.status is string;
     }
 
     function isValidAnime(data) {
       return data.keys().hasAll(['title', 'videoUrl', 'accessType']) &&
              data.title is string && data.title.size() < 200 &&
              data.videoUrl is string &&
-             data.accessType in ['public', 'premium'];
+             data.accessType is string;
+    }
+
+    function isValidTariff(data) {
+      return data.keys().hasAll(['name', 'redirectUrl']) &&
+             data.name is string && data.redirectUrl is string;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['uid', 'name', 'animeIds']) &&
+             data.uid is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.animeIds is list;
     }
 
     // ===============================================================
@@ -124,8 +137,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. Support and SuperAdmin can read all.
-      // "har bir admin uzining vakolati bo'lamag bulimlarga kira olsin lekin faqqat o'qish erjimida"
-      allow read: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       
       // Create: User can create their own profile as 'user' and 'standard'.
       // SuperAdmin can create any.
@@ -134,9 +147,25 @@ service cloud.firestore {
       // Update: User can update their own info but NOT role/status.
       // Support can update info and status.
       // SuperAdmin can update everything.
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status && isValidUser(request.resource.data)) ||
-                    (isSupport() && isValidUser(request.resource.data)) ||
-                    isSuperAdmin();
+      // CRITICAL: NO ONE can change the role of the hardcoded superadmin.
+      allow update: if (isSuperAdmin() && (userId != request.auth.uid || request.resource.data.role == 'superadmin')) ||
+                    (isSupport() && userId != request.auth.uid && isValidUser(request.resource.data)) ||
+                    (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status && isValidUser(request.resource.data));
+      
+      // Delete: Only SuperAdmin, but NOT the hardcoded one.
+      allow delete: if isSuperAdmin() && request.auth.token.email.lower() != get(/databases/$(database)/documents/users/$(userId)).data.email.lower();
+    }
+
+    match /ads/{adId} {
+      // Anyone can read enabled ads.
+      allow read: if true;
+      // Only SuperAdmin can manage ads.
+      allow write: if isSuperAdmin();
+    }
+
+    match /ai_configs/{configId} {
+      // Only SuperAdmin can manage AI configs.
+      allow read, write: if isSuperAdmin();
     }
 
     match /animes/{animeId} {
@@ -144,7 +173,35 @@ service cloud.firestore {
       allow read: if true;
       
       // Write: Uploader and SuperAdmin.
-      allow create, update, delete: if isUploader() && isValidAnime(request.resource.data);
+      allow create, update: if isUploader() && isValidAnime(request.resource.data);
+      allow delete: if isUploader();
+    }
+
+    match /tariffs/{tariffId} {
+      // Everyone can read tariffs to see upgrade options.
+      allow read: if true;
+      // Write: SuperAdmin only.
+      allow create, update: if isSuperAdmin() && isValidTariff(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /playlists/{playlistId} {
+      // Users can read their own playlists.
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.uid;
+      // Create: Authenticated users can create their own.
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidPlaylist(request.resource.data);
+      // Update/Delete: Only owners.
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.uid && isValidPlaylist(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    match /notifications/{notificationId} {
+      // Users can read their own notifications.
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || resource.data.userId == 'all');
+      // Create: Admins can send notifications.
+      allow create: if isAdmin();
+      // Update: Users can mark their own as read.
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
     }
 
     match /stats/{statId} {

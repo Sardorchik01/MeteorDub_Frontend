@@ -12,7 +12,8 @@
         "lastName": { "type": "string" },
         "birthYear": { "type": "number" },
         "role": { "type": "string", "enum": ["user", "uploader", "support", "superadmin"] },
-        "status": { "type": "string", "enum": ["standard", "premium"] },
+        "status": { "type": "string", "description": "standard or tariff ID" },
+        "tariffId": { "type": "string", "description": "ID of the active tariff" },
         "createdAt": { "type": "number", "description": "Timestamp" }
       },
       "required": ["uid", "email", "username", "role", "status"]
@@ -32,10 +33,24 @@
         "episodes": { "type": "number" },
         "status": { "type": "string", "enum": ["Ongoing", "Completed"] },
         "year": { "type": "number" },
-        "accessType": { "type": "string", "enum": ["public", "premium"] },
-        "upgradeLink": { "type": "string", "format": "uri" }
+        "accessType": { "type": "string", "description": "public or tariff ID" },
+        "createdAt": { "type": "number" }
       },
       "required": ["title", "videoUrl", "accessType"]
+    },
+    "Tariff": {
+      "title": "Tariff",
+      "description": "Subscription plans.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "buttonLabel": { "type": "string" },
+        "redirectUrl": { "type": "string" },
+        "price": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "redirectUrl"]
     },
     "Stats": {
       "title": "Statistics",
@@ -46,6 +61,21 @@
         "views": { "type": "number" },
         "subscriptions": { "type": "number" }
       }
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "User-created anime playlists.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "animeIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "name", "animeIds"]
     }
   },
   "firestore": {
@@ -57,9 +87,27 @@
       "schema": "Anime",
       "description": "Anime catalog."
     },
-    "/stats/{statId}": {
-      "schema": "Stats",
-      "description": "Daily statistics for dashboard."
+    "/tariffs/{tariffId}": {
+      "schema": "Tariff",
+      "description": "Subscription plans."
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "User anime playlists."
+    },
+    "/notifications/{notificationId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "type": { "type": "string" },
+          "read": { "type": "boolean" },
+          "createdAt": { "type": "number" }
+        }
+      },
+      "description": "User notifications."
     },
     "/usernames/{username}": {
       "schema": {

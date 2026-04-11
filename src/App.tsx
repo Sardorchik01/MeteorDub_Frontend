@@ -8,6 +8,9 @@ import AnimeApp from './components/AnimeApp';
 import AdminLayout from './admin/AdminLayout';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { LanguageProvider } from './contexts/LanguageContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, User as UserIcon } from 'lucide-react';
 import * as React from 'react';
@@ -16,13 +19,19 @@ import DevSwitcher from './components/DevSwitcher';
 export default function App() {
   return (
     <AuthProvider>
-      <TooltipProvider>
-        <Routes>
-          <Route path="/admin/*" element={<AdminLayout />} />
-          <Route path="/*" element={<AnimeApp />} />
-        </Routes>
-        <DevSwitcher />
-      </TooltipProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <NotificationProvider>
+            <TooltipProvider>
+              <Routes>
+                <Route path="/admin/*" element={<AdminLayout />} />
+                <Route path="/*" element={<AnimeApp />} />
+              </Routes>
+              <DevSwitcher />
+            </TooltipProvider>
+          </NotificationProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

@@ -1,57 +1,146 @@
 import * as React from 'react';
 import { 
   Users, Film, TrendingUp, Eye, 
-  ArrowUpRight, ArrowDownRight, Activity
+  ArrowUpRight, ArrowDownRight, Activity, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, AreaChart, Area 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { db } from '../lib/firebase';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { Anime, UserProfile } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const data = [
-  { name: 'Mon', views: 4000, subs: 240 },
-  { name: 'Tue', views: 3000, subs: 139 },
-  { name: 'Wed', views: 2000, subs: 980 },
-  { name: 'Thu', views: 2780, subs: 390 },
-  { name: 'Fri', views: 1890, subs: 480 },
-  { name: 'Sat', views: 2390, subs: 380 },
-  { name: 'Sun', views: 3490, subs: 430 },
-];
+const CACHE_KEY = 'admin_dashboard_stats';
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 
 export default function Dashboard() {
+  const { t } = useLanguage();
+  const [stats, setStats] = React.useState({
+    totalViews: 0,
+    activeUsers: 0,
+    newSubscriptions: 0,
+    animeUploads: 0,
+    recentActivity: [] as any[],
+    chartData: [] as any[]
+  });
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      // Check cache
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setStats(data);
+          setLoading(false);
+          return;
+        }
+      }
+
+      try {
+        // Fetch real data
+        const [usersSnap, animesSnap] = await Promise.all([
+          getDocs(collection(db, 'users')),
+          getDocs(collection(db, 'animes'))
+        ]);
+
+        const users = usersSnap.docs.map(doc => doc.data() as UserProfile);
+        const animes = animesSnap.docs.map(doc => doc.data() as Anime);
+
+        const totalViews = animes.reduce((acc, curr) => acc + (curr.views || 0), 0);
+        const activeUsers = users.length;
+        const newSubscriptions = users.filter(u => u.tariffId && u.tariffId !== 'free').length;
+        const animeUploads = animes.length;
+
+        // Mock chart data for now as we don't have historical stats in Firestore yet
+        const chartData = [
+          { name: 'Mon', views: Math.floor(totalViews * 0.1) },
+          { name: 'Tue', views: Math.floor(totalViews * 0.15) },
+          { name: 'Wed', views: Math.floor(totalViews * 0.12) },
+          { name: 'Thu', views: Math.floor(totalViews * 0.2) },
+          { name: 'Fri', views: Math.floor(totalViews * 0.18) },
+          { name: 'Sat', views: Math.floor(totalViews * 0.13) },
+          { name: 'Sun', views: Math.floor(totalViews * 0.12) },
+        ];
+
+        // Recent activity from animes
+        const recentActivity = animes
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 5)
+          .map(anime => ({
+            id: anime.id,
+            title: `${t('anime_catalog')}: ${anime.title}`,
+            time: new Date(anime.createdAt).toLocaleString()
+          }));
+
+        const newStats = {
+          totalViews,
+          activeUsers,
+          newSubscriptions,
+          animeUploads,
+          recentActivity,
+          chartData
+        };
+
+        setStats(newStats);
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: newStats,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [t]);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Total Views" 
-          value="1.2M" 
-          change="+12.5%" 
+          title={t('total_views')} 
+          value={stats.totalViews.toLocaleString()} 
+          change="+0%" 
           trend="up" 
           icon={Eye} 
           color="blue" 
         />
         <StatCard 
-          title="Active Users" 
-          value="45.2k" 
-          change="+3.2%" 
+          title={t('active_users')} 
+          value={stats.activeUsers.toLocaleString()} 
+          change="+0%" 
           trend="up" 
           icon={Users} 
           color="purple" 
         />
         <StatCard 
-          title="New Subscriptions" 
-          value="1,284" 
-          change="-2.4%" 
-          trend="down" 
+          title={t('premium_users')} 
+          value={stats.newSubscriptions.toLocaleString()} 
+          change="+0%" 
+          trend="up" 
           icon={TrendingUp} 
           color="green" 
         />
         <StatCard 
-          title="Anime Uploads" 
-          value="842" 
-          change="+4" 
+          title={t('anime_uploads')} 
+          value={stats.animeUploads.toLocaleString()} 
+          change="+0%" 
           trend="up" 
           icon={Film} 
           color="orange" 
@@ -59,28 +148,28 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 bg-zinc-950 border-zinc-800">
+        <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-500" />
-              Traffic Overview
+              {t('traffic_overview')} (Cached 2h)
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={stats.chartData}>
                 <defs>
                   <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                <XAxis dataKey="name" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
+                  contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                  itemStyle={{ color: 'var(--foreground)' }}
                 />
                 <Area type="monotone" dataKey="views" stroke="#3b82f6" fillOpacity={1} fill="url(#colorViews)" />
               </AreaChart>
@@ -88,22 +177,25 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-950 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-lg font-bold">Recent Activity</CardTitle>
+            <CardTitle className="text-lg font-bold">{t('recent_activity')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-zinc-900 flex items-center justify-center">
-                  <Film className="h-5 w-5 text-zinc-500" />
+            {stats.recentActivity.map((activity) => (
+              <div key={activity.id} className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                  <Film className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">New anime uploaded: Demon Slayer S4</p>
-                  <p className="text-xs text-zinc-500">2 hours ago</p>
+                  <p className="text-sm font-medium truncate">{activity.title}</p>
+                  <p className="text-xs text-muted-foreground">{activity.time}</p>
                 </div>
               </div>
             ))}
+            {stats.recentActivity.length === 0 && (
+              <p className="text-center text-muted-foreground py-10">{t('no_activity')}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -120,7 +212,7 @@ function StatCard({ title, value, change, trend, icon: Icon, color }: any) {
   };
 
   return (
-    <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 transition-colors">
+    <Card className="bg-card border-border hover:border-accent transition-colors">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className={cn("p-2 rounded-xl", colors[color])}>
@@ -134,7 +226,7 @@ function StatCard({ title, value, change, trend, icon: Icon, color }: any) {
             {trend === 'up' ? <ArrowUpRight className="ml-1 h-3 w-3" /> : <ArrowDownRight className="ml-1 h-3 w-3" />}
           </div>
         </div>
-        <h3 className="text-zinc-500 text-sm font-medium">{title}</h3>
+        <h3 className="text-muted-foreground text-sm font-medium">{title}</h3>
         <p className="text-2xl font-bold mt-1">{value}</p>
       </CardContent>
     </Card>

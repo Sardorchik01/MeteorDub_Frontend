@@ -2,7 +2,7 @@ import * as React from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { UserProfile, UserRole, UserStatus } from '../types';
+import { UserProfile, UserRole } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // For Google users, we might need a default username or prompt for one
             // For now, we'll use a derived username from email if not present
             const baseUsername = firebaseUser.email?.split('@')[0] || 'user';
-            const isAdminEmail = ["abdulazizov0117@gmail.com", "Abdulazozv0117@gamil.com"].includes(firebaseUser.email || '');
+            const isAdminEmail = (firebaseUser.email || '').toLowerCase() === "abdulazizov0117@gmail.com";
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',

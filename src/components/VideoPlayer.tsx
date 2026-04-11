@@ -18,12 +18,17 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
+import { useLanguage } from '../contexts/LanguageContext';
+
 interface VideoPlayerProps {
   anime: Anime | null;
   onClose: () => void;
+  onWatchRelated?: (id: string) => void;
+  allAnimes?: Anime[];
 }
 
-export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
+export function VideoPlayer({ anime, onClose, onWatchRelated, allAnimes = [] }: VideoPlayerProps) {
+  const { t } = useLanguage();
   const [isMinimized, setIsMinimized] = React.useState(false);
   const [isPlaying, setIsPlaying] = React.useState(true);
   const [currentTime, setCurrentTime] = React.useState(0);
@@ -176,6 +181,9 @@ export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const relatedAnime = anime?.relatedAnimeId ? allAnimes.find(a => a.id === anime.relatedAnimeId) : null;
+  const relatedEdits = allAnimes.filter(a => a.contentType === 'edit' && a.relatedAnimeId === anime?.id);
+
   if (!anime) return null;
 
   return (
@@ -271,12 +279,12 @@ export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
           </video>
 
           {hasError && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-30 p-6 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-30 p-6 text-center">
               <div className="h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
                 <X className="h-8 w-8 text-red-500" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Video yuklashda xatolik</h3>
-              <p className="text-zinc-400 text-sm max-w-xs mb-6">
+              <h3 className="text-xl font-bold text-foreground mb-2">Video yuklashda xatolik</h3>
+              <p className="text-muted-foreground text-sm max-w-xs mb-6">
                 Video manbasi topilmadi yoki brauzeringiz ushbu formatni qo'llab-quvvatlamaydi.
               </p>
               <Button 
@@ -327,11 +335,11 @@ export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
                     {/* Preview Thumbnail (Mock) */}
                     {isScrubbing && (
                       <div 
-                        className="absolute bottom-full mb-4 -translate-x-1/2 bg-zinc-900 border border-zinc-800 rounded overflow-hidden w-32 h-20 shadow-xl"
+                        className="absolute bottom-full mb-4 -translate-x-1/2 bg-card border border-border rounded overflow-hidden w-32 h-20 shadow-xl"
                         style={{ left: `${(scrubTime / duration) * 100}%` }}
                       >
                         <img src={anime.thumbnail} className="w-full h-full object-cover opacity-50" referrerPolicy="no-referrer" />
-                        <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-mono">
+                        <div className="absolute inset-0 flex items-center justify-center text-foreground text-xs font-mono">
                           {formatTime(scrubTime)}
                         </div>
                       </div>
@@ -368,18 +376,18 @@ export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
                           <Settings className="h-5 w-5" />
                         </Button>
                       } />
-                      <DropdownMenuContent align="end" className="bg-zinc-900 text-white border-zinc-800">
-                        <DropdownMenuItem className="focus:bg-zinc-800 focus:text-white">
+                      <DropdownMenuContent align="end" className="bg-card text-foreground border-border">
+                        <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
                           <Languages className="mr-2 h-4 w-4" /> Audio: Japanese
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="focus:bg-zinc-800 focus:text-white">
+                        <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
                           <Subtitles className="mr-2 h-4 w-4" /> Subtitles: English
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="focus:bg-zinc-800 focus:text-white">
+                        <DropdownMenuItem className="focus:bg-accent focus:text-accent-foreground">
                           <Highlighter className="mr-2 h-4 w-4" /> Quality: 1080p
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          className="focus:bg-zinc-800 focus:text-white"
+                          className="focus:bg-accent focus:text-accent-foreground"
                           onClick={() => {
                             const rates = [0.5, 1, 1.5, 2];
                             const next = rates[(rates.indexOf(playbackRate) + 1) % rates.length];
@@ -403,46 +411,65 @@ export function VideoPlayer({ anime, onClose }: VideoPlayerProps) {
 
         {/* Anime Info & Actions (Below Video) */}
         {!isMinimized && (
-          <ScrollArea className="flex-1 bg-zinc-950">
+          <ScrollArea className="flex-1 bg-background">
             <div className="p-6 space-y-8 max-w-4xl mx-auto">
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-4">
                   <h1 className="text-2xl md:text-3xl font-bold">{anime.title}</h1>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="text-blue-500 border-blue-500/30">HD</Badge>
-                    <Badge variant="outline" className="text-zinc-400 border-zinc-800">TV</Badge>
-                    <span className="text-zinc-500 text-sm">{anime.year} • {anime.episodes} Episodes</span>
+                    <Badge variant="outline" className="text-muted-foreground border-border">TV</Badge>
+                    <span className="text-muted-foreground text-sm">{anime.year} • {anime.episodes} Episodes</span>
                   </div>
-                  <p className="text-zinc-400 text-sm leading-relaxed">{anime.description}</p>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{anime.description}</p>
                 </div>
                 <div className="flex flex-col gap-3 w-full md:w-64">
-                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-12">
-                    <Play className="mr-2 h-4 w-4 fill-white" /> Next Episode
-                  </Button>
-                  <Button variant="outline" className="w-full border-zinc-800 h-12">
+                  {anime.contentType === 'edit' && relatedAnime && (
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
+                      onClick={() => onWatchRelated?.(relatedAnime.id)}
+                    >
+                      <Play className="mr-2 h-4 w-4 fill-white" /> {t('watch_full')}
+                    </Button>
+                  )}
+                  {anime.contentType === 'full' && relatedAnime && (
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+                      onClick={() => onWatchRelated?.(relatedAnime.id)}
+                    >
+                      <Play className="mr-2 h-4 w-4 fill-white" /> {t('next_episode')}
+                    </Button>
+                  )}
+                  <Button variant="outline" className="w-full border-border h-12">
                     Download Episode
                   </Button>
                 </div>
               </div>
 
-              {/* Shorts / Related */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Play className="h-4 w-4 text-red-500 fill-red-500" /> Shorts
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="aspect-[9/16] rounded-xl overflow-hidden relative group cursor-pointer">
-                      <img src={`https://picsum.photos/seed/short${i}/400/700`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <p className="text-xs font-medium line-clamp-2">Amazing fight scene from {anime.title}!</p>
-                        <p className="text-[10px] text-zinc-400 mt-1">1.2M views</p>
+              {/* Related Edits / Shorts */}
+              {relatedEdits.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Play className="h-4 w-4 text-red-500 fill-red-500" /> Shorts / Edits
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {relatedEdits.map((edit) => (
+                      <div 
+                        key={edit.id} 
+                        className="aspect-[9/16] rounded-xl overflow-hidden relative group cursor-pointer"
+                        onClick={() => onWatchRelated?.(edit.id)}
+                      >
+                        <img src={edit.thumbnail} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <p className="text-xs font-medium line-clamp-2 text-white">{edit.title}</p>
+                          <p className="text-[10px] text-zinc-400 mt-1">{edit.views || 0} views</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </ScrollArea>
         )}
