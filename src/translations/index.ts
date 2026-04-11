@@ -177,6 +177,9 @@ export const translations = {
     sending: 'Yuborilmoqda...',
     linked_anime: 'Bog\'langan anime (ixtiyoriy)',
     copyright: '© 2026 MeteorDub. Barcha huquqlar himoyalangan.',
+    hide_all_ads: 'Barcha reklamalarni yashirish',
+    hide_specific_ads: 'Ma\'lum bir joydagi reklamalarni yashirish',
+    ad_settings: 'Reklama sozlamalari',
   },
   ru: {
     // Sidebar & Navigation
@@ -356,6 +359,9 @@ export const translations = {
     sending: 'Отправка...',
     linked_anime: 'Связанное аниме (опционально)',
     copyright: '© 2026 MeteorDub. Все права защищены.',
+    hide_all_ads: 'Скрыть всю рекламу',
+    hide_specific_ads: 'Скрыть рекламу в определенных местах',
+    ad_settings: 'Настройки рекламы',
   },
   en: {
     // Sidebar & Navigation
@@ -535,5 +541,8 @@ export const translations = {
     sending: 'Sending...',
     linked_anime: 'Linked Anime (Optional)',
     copyright: '© 2026 MeteorDub. All rights reserved.',
+    hide_all_ads: 'Hide All Ads',
+    hide_specific_ads: 'Hide Specific Ad Locations',
+    ad_settings: 'Ad Settings',
   }
 };

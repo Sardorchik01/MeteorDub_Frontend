@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Film, Users, Shield, LogOut, 
   Menu, X, Search, Settings, ChevronRight, CreditCard, Bot,
-  Sun, Moon, Bell
+  Sun, Moon, Bell, Image as ImageIcon
 } from 'lucide-react';
 import { NotificationBell } from '../components/NotificationBell';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import TariffManagement from './TariffManagement';
 import AdManagement from './AdManagement';
 import AISettings from './AISettings';
 import NotificationManagement from './NotificationManagement';
+import StoryManagement from './StoryManagement';
 import AdminLogin from './Login';
 
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -53,6 +54,7 @@ export default function AdminLayout() {
     { label: t('members'), icon: Users, path: '/admin/members', roles: ['superadmin', 'support'] },
     { label: t('ads'), icon: CreditCard, path: '/admin/ads', roles: ['superadmin'] },
     { label: t('ai_settings'), icon: Bot, path: '/admin/ai-settings', roles: ['superadmin'] },
+    { label: 'Stories', icon: ImageIcon, path: '/admin/stories', roles: ['superadmin'] },
     { label: t('notifications_mgmt'), icon: Bell, path: '/admin/notifications', roles: ['superadmin', 'uploader', 'support'] },
     { label: t('admins'), icon: Shield, path: '/admin/admins', roles: ['superadmin'] },
   ];
@@ -158,6 +160,7 @@ export default function AdminLayout() {
             <Route path="/members" element={<MemberManagement />} />
             <Route path="/ads" element={<AdManagement />} />
             <Route path="/ai-settings" element={<AISettings />} />
+            <Route path="/stories" element={<StoryManagement />} />
             <Route path="/notifications" element={<NotificationManagement />} />
             <Route path="/admins" element={<AdminManagement />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />

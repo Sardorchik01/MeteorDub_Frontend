@@ -27,6 +27,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { AdBanner } from './AdBanner';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { PlaylistModal } from './PlaylistModal';
+import { Stories } from './Stories';
 import { 
   signInWithPopup, 
   signOut,
@@ -464,6 +465,10 @@ export default function AnimeApp() {
               <div className="px-4 md:px-16 pt-8">
                 <AdBanner location="top" />
               </div>
+              
+              {/* Stories Section */}
+              <Stories />
+
               {/* Hero Section */}
               {animes.length > 0 && (
                 <section className="relative h-[60vh] md:h-[80vh] overflow-hidden">

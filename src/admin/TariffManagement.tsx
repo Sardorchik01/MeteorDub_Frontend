@@ -2,10 +2,12 @@ import * as React from 'react';
 import { 
   Plus, Search, Edit, Trash2, 
   ExternalLink, CreditCard, Settings2,
-  CheckCircle2, AlertCircle, Loader2
+  CheckCircle2, AlertCircle, Loader2, EyeOff, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Dialog, DialogContent, DialogHeader, 
@@ -28,7 +30,9 @@ export default function TariffManagement() {
     description: '',
     buttonLabel: 'Upgrade Now',
     redirectUrl: '',
-    price: ''
+    price: '',
+    hideAds: false,
+    hiddenAdLocations: []
   });
 
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -66,7 +70,15 @@ export default function TariffManagement() {
       }
       setIsAddDialogOpen(false);
       setEditingTariff(null);
-      setFormData({ name: '', description: '', buttonLabel: 'Upgrade Now', redirectUrl: '', price: '' });
+      setFormData({ 
+        name: '', 
+        description: '', 
+        buttonLabel: 'Upgrade Now', 
+        redirectUrl: '', 
+        price: '',
+        hideAds: false,
+        hiddenAdLocations: []
+      });
     } catch (error) {
       console.error('Error saving tariff:', error);
     }
@@ -102,7 +114,15 @@ export default function TariffManagement() {
           setIsAddDialogOpen(open);
           if (!open) {
             setEditingTariff(null);
-            setFormData({ name: '', description: '', buttonLabel: 'Upgrade Now', redirectUrl: '', price: '' });
+            setFormData({ 
+              name: '', 
+              description: '', 
+              buttonLabel: 'Upgrade Now', 
+              redirectUrl: '', 
+              price: '',
+              hideAds: false,
+              hiddenAdLocations: []
+            });
           }
         }}>
           <DialogTrigger render={<Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl h-11 px-6" />}>
@@ -166,6 +186,46 @@ export default function TariffManagement() {
                   onChange={(e) => setFormData({ ...formData, redirectUrl: e.target.value })}
                 />
               </div>
+
+              <div className="pt-4 border-t border-border space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <EyeOff className="h-4 w-4 text-blue-500" />
+                  {t('ad_settings')}
+                </h3>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="hide-ads" className="text-sm font-medium">{t('hide_all_ads')}</Label>
+                  <Checkbox 
+                    id="hide-ads"
+                    checked={formData.hideAds}
+                    onCheckedChange={(checked) => setFormData({ ...formData, hideAds: !!checked })}
+                  />
+                </div>
+
+                {!formData.hideAds && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-xs font-medium text-muted-foreground">{t('hide_specific_ads')}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['top', 'sidebar', 'bottom', 'popup'].map((loc) => (
+                        <div key={loc} className="flex items-center space-x-2 bg-muted p-2 rounded-lg border border-border">
+                          <Checkbox 
+                            id={`loc-${loc}`}
+                            checked={formData.hiddenAdLocations?.includes(loc)}
+                            onCheckedChange={(checked) => {
+                              const current = formData.hiddenAdLocations || [];
+                              if (checked) {
+                                setFormData({ ...formData, hiddenAdLocations: [...current, loc] });
+                              } else {
+                                setFormData({ ...formData, hiddenAdLocations: current.filter(l => l !== loc) });
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`loc-${loc}`} className="text-xs capitalize">{loc}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
@@ -213,6 +273,12 @@ export default function TariffManagement() {
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-widest">
                     <span>Redirect</span>
                     <span className="text-foreground truncate max-w-[150px]">{tariff.redirectUrl}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-widest">
+                    <span>Ads</span>
+                    <span className={cn("font-bold", tariff.hideAds ? "text-red-500" : "text-green-500")}>
+                      {tariff.hideAds ? 'HIDDEN' : (tariff.hiddenAdLocations?.length ? `${tariff.hiddenAdLocations.length} RESTRICTED` : 'VISIBLE')}
+                    </span>
                   </div>
                 </div>
               </CardContent>

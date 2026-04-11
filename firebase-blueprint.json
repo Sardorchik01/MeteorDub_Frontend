@@ -76,6 +76,35 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["uid", "name", "animeIds"]
+    },
+    "TelegramQueueItem": {
+      "title": "Telegram Queue Item",
+      "description": "Metadata for videos received via Telegram.",
+      "type": "object",
+      "properties": {
+        "fileId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "postUrl": { "type": "string", "format": "uri" },
+        "source": { "type": "string", "enum": ["direct_bot", "channel_post"] },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["fileId", "fileName", "source"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Short-lived media content (stories).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "mediaUrl": { "type": "string", "format": "uri" },
+        "thumbnailUrl": { "type": "string", "format": "uri" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "title": { "type": "string" },
+        "link": { "type": "string", "format": "uri" },
+        "expiresAt": { "type": "number", "description": "Timestamp when the story expires" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["mediaUrl", "thumbnailUrl", "expiresAt"]
     }
   },
   "firestore": {
@@ -118,6 +147,14 @@
         }
       },
       "description": "Mapping of usernames to emails for unique check and login."
+    },
+    "/telegram_queue/{itemId}": {
+      "schema": "TelegramQueueItem",
+      "description": "Queue of videos received from Telegram for admin mapping."
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Short-lived stories visible on the home page."
     }
   }
 }

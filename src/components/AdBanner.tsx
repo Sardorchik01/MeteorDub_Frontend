@@ -11,15 +11,28 @@ interface AdBannerProps {
 }
 
 export function AdBanner({ location, className }: AdBannerProps) {
-  const { profile } = useAuth();
+  const { profile, tariff } = useAuth();
   const [ad, setAd] = React.useState<AdConfig | null>(null);
   const [isVisible, setIsVisible] = React.useState(false);
 
-  // Premium users don't see ads
-  const isPremium = profile?.status === 'premium' || !!profile?.tariffId;
+  // Check if ads should be hidden based on tariff settings
+  const shouldHideAds = React.useMemo(() => {
+    if (!profile) return false;
+    
+    // Hardcoded premium status check (fallback)
+    if (profile.status === 'premium') return true;
+    
+    // Dynamic tariff check
+    if (tariff) {
+      if (tariff.hideAds) return true;
+      if (tariff.hiddenAdLocations?.includes(location)) return true;
+    }
+    
+    return false;
+  }, [profile, tariff, location]);
 
   React.useEffect(() => {
-    if (isPremium) {
+    if (shouldHideAds) {
       setIsVisible(false);
       return;
     }
@@ -40,7 +53,7 @@ export function AdBanner({ location, className }: AdBannerProps) {
     });
 
     return () => unsubscribe();
-  }, [location, isPremium]);
+  }, [location, shouldHideAds]);
 
   if (!isVisible || !ad) return null;
 

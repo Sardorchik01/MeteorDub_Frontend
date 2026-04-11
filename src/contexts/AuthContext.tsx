@@ -2,11 +2,12 @@ import * as React from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile, UserRole, Tariff } from '../types';
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
+  tariff: Tariff | null;
   loading: boolean;
   isAuthReady: boolean;
 }
@@ -16,6 +17,7 @@ const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [tariff, setTariff] = React.useState<Tariff | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isAuthReady, setIsAuthReady] = React.useState(false);
 
@@ -28,7 +30,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
+            const profileData = docSnap.data() as UserProfile;
+            setProfile(profileData);
+
+            // Fetch tariff if exists
+            if (profileData.tariffId) {
+              const tariffDocRef = doc(db, 'tariffs', profileData.tariffId);
+              onSnapshot(tariffDocRef, (tSnap) => {
+                if (tSnap.exists()) {
+                  setTariff({ id: tSnap.id, ...tSnap.data() } as Tariff);
+                } else {
+                  setTariff(null);
+                }
+              });
+            } else {
+              setTariff(null);
+            }
           } else {
             // Create default profile if it doesn't exist
             // For Google users, we might need a default username or prompt for one
@@ -68,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAuthReady }}>
+    <AuthContext.Provider value={{ user, profile, tariff, loading, isAuthReady }}>
       {children}
     </AuthContext.Provider>
   );

@@ -14,7 +14,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, User as UserIcon } from 'lucide-react';
 import * as React from 'react';
-import DevSwitcher from './components/DevSwitcher';
 
 export default function App() {
   return (
@@ -27,7 +26,6 @@ export default function App() {
                 <Route path="/admin/*" element={<AdminLayout />} />
                 <Route path="/*" element={<AnimeApp />} />
               </Routes>
-              <DevSwitcher />
             </TooltipProvider>
           </NotificationProvider>
         </LanguageProvider>

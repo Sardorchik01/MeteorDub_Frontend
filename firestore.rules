@@ -43,6 +43,26 @@
 //   - views: number
 //   - subscriptions: number
 //
+// Collection: telegram_queue
+// Document ID: {itemId}
+// Fields:
+//   - fileId: string (required)
+//   - fileName: string (required)
+//   - postUrl: string
+//   - source: string (direct_bot, channel_post)
+//   - createdAt: timestamp
+//
+// Collection: stories
+// Document ID: {storyId}
+// Fields:
+//   - mediaUrl: string (required)
+//   - thumbnailUrl: string (required)
+//   - mediaType: string (image, video)
+//   - title: string
+//   - link: string
+//   - expiresAt: number (required)
+//   - createdAt: number
+//
 // ===============================================================
 
 rules_version = '2';
@@ -120,6 +140,20 @@ service cloud.firestore {
              data.uid is string &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.animeIds is list;
+    }
+
+    function isValidTelegramQueueItem(data) {
+      return data.keys().hasAll(['fileId', 'fileName', 'source']) &&
+             data.fileId is string &&
+             data.fileName is string &&
+             data.source in ['direct_bot', 'channel_post'];
+    }
+
+    function isValidStory(data) {
+      return data.keys().hasAll(['mediaUrl', 'thumbnailUrl', 'expiresAt']) &&
+             data.mediaUrl is string &&
+             data.thumbnailUrl is string &&
+             data.expiresAt is number;
     }
 
     // ===============================================================
@@ -210,6 +244,28 @@ service cloud.firestore {
       
       // SuperAdmin can write stats (or a backend process).
       allow write: if isSuperAdmin();
+    }
+
+    match /telegram_queue/{itemId} {
+      // Only admins can read the queue.
+      allow read: if isAdmin();
+      
+      // Allow writes from the backend (or admins).
+      // Since the backend uses client SDK without auth in this setup, 
+      // we temporarily allow create if it has the right schema.
+      // In a production app, this should be restricted to Admin SDK or specific auth.
+      allow create: if (isAuthenticated() && isAdmin() && isValidTelegramQueueItem(request.resource.data)) || 
+                    (!isAuthenticated() && isValidTelegramQueueItem(request.resource.data));
+      
+      // Only admins can delete from queue.
+      allow delete: if isAdmin();
+    }
+
+    match /stories/{storyId} {
+      // Everyone can read stories.
+      allow read: if true;
+      // Only SuperAdmin can manage stories.
+      allow write: if isSuperAdmin() && (request.method == 'delete' || isValidStory(request.resource.data));
     }
 
     match /{path=**} {

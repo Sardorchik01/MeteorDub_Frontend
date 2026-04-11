@@ -184,6 +184,13 @@ export function VideoPlayer({ anime, onClose, onWatchRelated, allAnimes = [] }: 
   const relatedAnime = anime?.relatedAnimeId ? allAnimes.find(a => a.id === anime.relatedAnimeId) : null;
   const relatedEdits = allAnimes.filter(a => a.contentType === 'edit' && a.relatedAnimeId === anime?.id);
 
+  const videoSource = React.useMemo(() => {
+    if (anime?.telegramFileId) {
+      return `/api/video/telegram/${anime.telegramFileId}`;
+    }
+    return anime?.videoUrl;
+  }, [anime]);
+
   if (!anime) return null;
 
   return (
@@ -274,7 +281,7 @@ export function VideoPlayer({ anime, onClose, onWatchRelated, allAnimes = [] }: 
             crossOrigin="anonymous"
             playsInline
           >
-            <source src={anime.videoUrl} type="video/mp4" />
+            <source src={videoSource} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
 

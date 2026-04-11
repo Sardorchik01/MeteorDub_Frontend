@@ -20,7 +20,7 @@ import { useNotifications } from '../contexts/NotificationContext';
 import { Anime, Tariff } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, limit } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 export default function AnimeManagement() {
@@ -35,6 +35,10 @@ export default function AnimeManagement() {
   const [videoFile, setVideoFile] = React.useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = React.useState<File | null>(null);
   const [relatedSearch, setRelatedSearch] = React.useState('');
+  const [telegramLink, setTelegramLink] = React.useState('');
+  const [isResolving, setIsResolving] = React.useState(false);
+  const [telegramQueue, setTelegramQueue] = React.useState<any[]>([]);
+  const [showQueue, setShowQueue] = React.useState(false);
 
   const filteredRelatedAnimes = animes.filter(a => 
     a.id !== editingAnime?.id && 
@@ -52,6 +56,7 @@ export default function AnimeManagement() {
     episodes: undefined,
     videoUrl: '',
     thumbnail: '',
+    telegramFileId: '',
     relatedAnimeId: ''
   });
 
@@ -70,12 +75,39 @@ export default function AnimeManagement() {
       setTariffs(data);
     });
 
+    // Fetch Telegram Queue
+    const qQueue = query(collection(db, 'telegram_queue'), orderBy('createdAt', 'desc'), limit(20));
+    const unsubQueue = onSnapshot(qQueue, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTelegramQueue(data);
+    });
+
     return () => {
       unsubAnime();
       unsubTariff();
+      unsubQueue();
     };
   }, []);
 
+  const handleResolveLink = async () => {
+    if (!telegramLink) return;
+    setIsResolving(true);
+    try {
+      const response = await fetch(`/api/telegram/resolve?url=${encodeURIComponent(telegramLink)}`);
+      const data = await response.json();
+      if (data.fileId) {
+        setNewAnime({ ...newAnime, telegramFileId: data.fileId });
+        sendNotification('all', 'Link Resolved!', 'Telegram video found and mapped successfully.', 'success');
+      } else {
+        alert(data.error || 'Could not resolve link');
+      }
+    } catch (error) {
+      console.error('Resolve failed:', error);
+      alert('Failed to connect to server');
+    } finally {
+      setIsResolving(false);
+    }
+  };
   const handleFileUpload = async () => {
     if (!videoFile && !thumbnailFile) return null;
     
@@ -183,6 +215,7 @@ export default function AnimeManagement() {
       episodes: undefined,
       videoUrl: '',
       thumbnail: '',
+      telegramFileId: '',
       relatedAnimeId: ''
     });
     setIsAddDialogOpen(true);
@@ -190,7 +223,10 @@ export default function AnimeManagement() {
 
   const openEdit = (anime: Anime) => {
     setEditingAnime(anime);
-    setNewAnime(anime);
+    setNewAnime({
+      ...anime,
+      telegramFileId: anime.telegramFileId || ''
+    });
     setIsAddDialogOpen(true);
   };
 
@@ -439,6 +475,102 @@ export default function AnimeManagement() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-4 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-muted-foreground">Telegram Automation</label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-[10px] h-7 gap-1"
+                    onClick={() => setShowQueue(!showQueue)}
+                  >
+                    <ListPlus className="h-3 w-3" />
+                    {showQueue ? 'Hide Queue' : 'Show Recent Videos'}
+                  </Button>
+                </div>
+
+                {showQueue && (
+                  <div className="bg-muted/50 border border-border rounded-xl p-3 space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Recent Telegram Videos</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {telegramQueue.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="p-2 rounded-lg bg-background border border-border flex items-center justify-between group"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-medium truncate">{item.fileName}</p>
+                            <p className="text-[8px] text-muted-foreground">{item.source === 'channel_post' ? 'Channel Post' : 'Direct Bot'}</p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                            onClick={() => {
+                              setNewAnime({ ...newAnime, telegramFileId: item.fileId });
+                              if (item.postUrl) setTelegramLink(item.postUrl);
+                            }}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      {telegramQueue.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground col-span-2 text-center py-2 italic">
+                          No videos in queue. Send a video to the bot or post in the channel.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Input 
+                      placeholder="Paste Telegram Post Link (e.g., https://t.me/channel/123)" 
+                      className="bg-muted border-border pr-20"
+                      value={telegramLink}
+                      onChange={(e) => setTelegramLink(e.target.value)}
+                    />
+                    <Button 
+                      size="sm" 
+                      className="absolute right-1 top-1 h-8 bg-blue-500 hover:bg-blue-600"
+                      onClick={handleResolveLink}
+                      disabled={isResolving || !telegramLink}
+                    >
+                      {isResolving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Auto-Map'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">Video Source</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Direct Video URL</label>
+                    <Input 
+                      placeholder="https://example.com/video.mp4" 
+                      className="bg-muted border-border"
+                      value={newAnime.videoUrl}
+                      onChange={(e) => setNewAnime({ ...newAnime, videoUrl: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Telegram File ID (Optional)</label>
+                    <Input 
+                      placeholder="BAACAgIAAxkBA..." 
+                      className="bg-muted border-border"
+                      value={newAnime.telegramFileId}
+                      onChange={(e) => setNewAnime({ ...newAnime, telegramFileId: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  If Telegram File ID is provided, it will be used as the primary video source.
+                </p>
               </div>
 
               <div className="space-y-4 md:col-span-2">

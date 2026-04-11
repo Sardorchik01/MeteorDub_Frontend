@@ -7,6 +7,8 @@ export interface Tariff {
   buttonLabel: string;
   redirectUrl: string;
   price?: string;
+  hideAds?: boolean;
+  hiddenAdLocations?: string[];
   createdAt: number;
 }
 
@@ -36,6 +38,7 @@ export interface Anime {
   year: number;
   accessType: 'public' | string[]; // Can be 'public' or an array of tariff IDs
   contentType: 'full' | 'trailer' | 'edit';
+  telegramFileId?: string; // Telegram File ID for the video
   relatedAnimeId?: string; // ID of the related anime (e.g., next episode or full version for edits)
   views: number;
   createdAt: number;
